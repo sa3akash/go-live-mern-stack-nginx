@@ -1,0 +1,30 @@
+name: live
+
+services:
+  nginx-rtmp:
+    image: sa2avroo/rtmp:latest
+    ports:
+      - "2323:2323"
+      - "8888:8888"
+    volumes:
+      - ./rtmp/nginx.conf:/etc/nginx/nginx.conf.template
+      - ./server/src/recorded:/opt/data/recorded # New volume for recorded videos
+
+  # ffmpeg:
+  #   image: jrottenberg/ffmpeg:latest
+  #   command: ["sleep", "infinity"]  # Keeps FFmpeg container running
+  #   depends_on:
+  #     - nginx-rtmp
+  #   volumes:
+  #     - ./hls:/tmp/hls
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - mongo-live:/data/db
+    ports:
+      - 27027:27017
+
+
+volumes:
+  mongo-live:
