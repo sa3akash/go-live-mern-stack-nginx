@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import VideoPlayer from "../components/VideoPlayer";
 import GoLive from "../components/GoLive";
+import StreamAnalytics from "../components/StreamAnalytics";
 
 const Home = () => {
   const [user, setUser] = useState({
@@ -70,7 +71,7 @@ const Home = () => {
         </div>
         <div className="flex gap-4 w-full items-center flex-col">
           <div>
-            <GoLive id={user._id as string} />
+            <GoLive />
           </div>
           {/* ["http://localhost:5555/hls/67276cf64ad3ef0eaa0cb4a9/9f068c5b-3853-4a0a-86d4-b22a25025f11-1730637047489_240p.m3u8","http://localhost:5555/hls/67276cf64ad3ef0eaa0cb4a9/9f068c5b-3853-4a0a-86d4-b22a25025f11-1730637047489_360p.m3u8","http://localhost:5555/hls/67276cf64ad3ef0eaa0cb4a9/9f068c5b-3853-4a0a-86d4-b22a25025f11-1730637047489_480p.m3u8","http://localhost:5555/hls/67276cf64ad3ef0eaa0cb4a9/9f068c5b-3853-4a0a-86d4-b22a25025f11-1730637047489_720p.m3u8","http://localhost:5555/hls/67276cf64ad3ef0eaa0cb4a9/9f068c5b-3853-4a0a-86d4-b22a25025f11-1730637047489_index.m3u8"] */}
           <VideoPlayer streamUrl={'http://localhost:5555/hls/67276cf64ad3ef0eaa0cb4a9/9f068c5b-3853-4a0a-86d4-b22a25025f11-1730637047489_index.m3u8'} />
@@ -78,7 +79,7 @@ const Home = () => {
       </div>
 
       <div>
-        {/* <StreamAnalytics /> */}
+        <StreamAnalytics />
 
       </div>
 

@@ -3,6 +3,7 @@ import Home from "./page/Home";
 import Posts from "./page/Posts";
 import Login from "./page/Login";
 import Register from "./page/Register";
+import { SocketProvider } from "./hooks/useSocket";
 
 const router = createBrowserRouter([
   {
@@ -14,7 +15,6 @@ const router = createBrowserRouter([
     element: <Posts />,
   },
   {
-
     path: "login",
     element: <Login />,
   },
@@ -22,12 +22,13 @@ const router = createBrowserRouter([
     path: "register",
     element: <Register />,
   },
-  
 ]);
 function App() {
   return (
     <>
-      <RouterProvider router={router} />
+      <SocketProvider>
+        <RouterProvider router={router} />
+      </SocketProvider>
     </>
   );
 }

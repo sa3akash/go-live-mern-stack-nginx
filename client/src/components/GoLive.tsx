@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { SocketContext, SocketContextType } from "../hooks/useSocket";
 
-const GoLive = ({ id }: { id: string }) => {
+const GoLive = () => {
   const [devices, setDevices] = useState<{ video: MediaDeviceInfo[], audio: MediaDeviceInfo[] }>({ video: [], audio: [] });
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<string | undefined>(undefined);
   const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<string | undefined>(undefined);
@@ -12,7 +12,9 @@ const GoLive = ({ id }: { id: string }) => {
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const socketRef = useRef<Socket | null>(null);
+
+  
+  const { socket } = useContext(SocketContext) as SocketContextType
 
   const startStreaming = async (videoDeviceId?: string, audioDeviceId?: string, isScreenShare = false) => {
     if (!videoRef.current) return;
@@ -48,7 +50,7 @@ const GoLive = ({ id }: { id: string }) => {
     }
   };
 
-  const stopStreaming = () => {
+  const stopStreaming = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -59,10 +61,10 @@ const GoLive = ({ id }: { id: string }) => {
     }
     setIsLive(false);
     // Emit the stop event to the server
-    if (socketRef.current) {
-      socketRef.current.emit("stop-stream");
+    if (socket) {
+      socket.emit("stop-stream");
     }
-  };
+  },[socket]);
 
   const startMediaRecorder = (stream: MediaStream) => {
     if (mediaRecorderRef.current) {
@@ -88,8 +90,8 @@ const GoLive = ({ id }: { id: string }) => {
       const arrayBuffer = reader.result as ArrayBuffer;
       const byteArray = new Uint8Array(arrayBuffer);
 
-      if (socketRef.current) {
-        socketRef.current.emit("stream", byteArray);
+      if (socket) {
+        socket.emit("stream", byteArray);
       }
     };
     reader.readAsArrayBuffer(blob);
@@ -135,23 +137,8 @@ const GoLive = ({ id }: { id: string }) => {
     return () => {
       stopStreaming();
     };
-  }, []);
+  }, [stopStreaming]);
 
-  useEffect(() => {
-    const socket: Socket = io("http://localhost:5555", {
-      query: { authId: id },
-    });
-
-    socket.on("connect", () => {
-      console.log("Connected to server");
-    });
-
-    socketRef.current = socket;
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [id]);
 
   return (
     <div className="flex flex-col items-center gap-4 p-4 bg-gray-100 rounded-lg shadow-md">

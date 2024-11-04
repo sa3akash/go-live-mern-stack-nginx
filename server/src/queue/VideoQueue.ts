@@ -18,7 +18,7 @@ export const videoQueue = new Bull<VideoJobData>("videoQueue", {
   },
 });
 
-// Handle job completion
+
 videoQueue.on("completed", async (job) => {
   console.log(`Job completed with result: ${job?.id}`);
   await job.remove(); // Remove job from the queue after completion
@@ -35,6 +35,8 @@ videoQueue.on("failed", async (job, err) => {
 videoQueue.process(async (job) => {
   ffmpeg.setFfmpegPath(`${global.appRoot}/bin/ffmpeg.exe`); // Replace with actual path
   ffmpeg.setFfprobePath(`${global.appRoot}/bin/ffprobe.exe`);
+
+  console.log('Job Processing...');
 
   const { name, videoPath } = job.data;
 
@@ -198,7 +200,7 @@ videoQueue.process(async (job) => {
         fs.unlinkSync(originalVideoPath);
       }
 
-      console.log(`Processed ${name}: HLS master playlist created.`);
+      console.log(`Job Processed ${name}: HLS master playlist created.`);
       resolve();
     });
   });
@@ -249,201 +251,3 @@ const heightToResolutions: Record<
     { resolution: "240p", bitrate: 400000 },
   ],
 };
-
-// import Bull from "bull";
-// import fs from "fs";
-// import path from "path";
-// import { Video } from "../model/Video";
-// import ffmpeg from "fluent-ffmpeg";
-
-// // Create a Bull queue
-// export const videoQueue = new Bull("videoQueue", {
-//   redis: {
-//     host: "127.0.0.1", // Your Redis host
-//     port: 6379, // Your Redis port
-//   },
-// });
-
-// // Process video jobs
-// videoQueue.process(async (job) => {
-//   ffmpeg.setFfmpegPath(`${global.appRoot}/bin/ffmpeg.exe`); // Replace with actual path
-//   ffmpeg.setFfprobePath(`${global.appRoot}/bin/ffprobe.exe`);
-
-//   const { name, videoPath } = job.data;
-
-//   // Save video metadata to MongoDB
-//   const video = new Video({
-//     name,
-//     hlsUrl: [],
-//     thumbnails: [],
-//     size: 0,
-//     duration: 0,
-//     resolution: "",
-//     codec: "",
-//   });
-
-//   const originalVideoPath = `${global.appRoot}/recorded/${videoPath
-//     .split("/")
-//     .pop()}`;
-//   const thumbnailDir = `${global.appRoot}/public/thumbnails/${video._id}`;
-//   const hlsDir = `${global.appRoot}/public/hls/${video._id}`;
-
-//   // Ensure thumbnail and HLS directories exist
-//   if (!fs.existsSync(thumbnailDir)) {
-//     fs.mkdirSync(thumbnailDir, { recursive: true });
-//   }
-//   if (!fs.existsSync(hlsDir)) {
-//     fs.mkdirSync(hlsDir, { recursive: true });
-//   }
-
-//   // Get video metadata
-//   return new Promise((resolve, reject) => {
-//     ffmpeg.ffprobe(originalVideoPath, async (err, metadata) => {
-//       if (err) {
-//         console.error("Error getting video metadata:", err);
-//         return reject("Error processing video");
-//       }
-
-//       const videoStream = metadata.streams.find(
-//         (stream) => stream.codec_type === "video"
-//       );
-
-//       if (!videoStream) {
-//         console.error("No video stream found in metadata.");
-//         return;
-//       }
-
-//       const videoSize = metadata.format.size;
-//       const bit_rate = metadata.format.bit_rate;
-//       const duration = metadata.format.duration || 0;
-//       const resolution = `${metadata.streams[0].width || videoStream.width}x${
-//         metadata.streams[0].height || videoStream.width
-//       }`;
-//       const codec = metadata.streams[0].codec_name;
-
-//       // Generate thumbnails
-//       const timestamps = Array.from({ length: 4 }, () =>
-//         (Math.random() * duration).toFixed(2)
-//       );
-//       const thumbnailPaths = [];
-
-//       const thumbnailName = `${name}-${video._id}-${resolution}`;
-
-//       for (const timestamp of timestamps) {
-//         const thumbnailPath = path.join(
-//           thumbnailDir,
-//           `${thumbnailName}_thumbnail_${timestamp}.jpg`
-//         );
-//         thumbnailPaths.push(thumbnailPath);
-//         await new Promise((thumbResolve, thumbReject) => {
-//           ffmpeg(originalVideoPath)
-//             .on("end", thumbResolve)
-//             .on("error", thumbReject)
-//             .screenshots({
-//               timestamps: [timestamp],
-//               filename: path.basename(thumbnailPath),
-//               folder: thumbnailDir,
-//             });
-//         });
-//       }
-
-//       // Determine HLS variants based on original resolution
-//       const getHeight = metadata.streams[0].height || videoStream.height || 360;
-//       const resolutions = heightToResolutions[getHeight];
-
-//       const hlsName = `${name}-${new Date().getTime()}`;
-
-//       const hlsPaths: string[] = [];
-
-//       // Generate HLS output for each resolution
-//       const hlsPromises = resolutions.map(({ resolution, bitrate }) => {
-//         const hlsVariantPath = path.join(
-//           hlsDir,
-//           `${hlsName}_${resolution}.m3u8`
-//         );
-//         return new Promise<void>((hlsResolve, hlsReject) => {
-//           ffmpeg(originalVideoPath)
-//             .outputOptions([
-//               `-c:a aac`,
-//               `-b:a 128k`,
-//               `-c:v libx264`,
-//               `-b:v ${bitrate}`,
-//               `-f hls`,
-//               `-hls_time 5`,
-//               `-hls_list_size 0`,
-//               `-hls_segment_filename ${path.join(
-//                 hlsDir,
-//                 `${hlsName}_${resolution}_%03d.ts`
-//               )}`,
-//             ])
-//             .output(hlsVariantPath)
-//             .on("end", () => {
-//               hlsPaths.push(
-//                 `https://localhost:3000/hls/${video._id}/${hlsName}_${resolution}.m3u8`
-//               );
-//               hlsResolve();
-//             })
-//             .on("error", hlsReject)
-//             .run();
-//         });
-//       });
-
-//       // After all HLS files are created, create a master playlist
-//       await Promise.all(hlsPromises);
-
-//       const masterPlaylist = hlsPaths
-//         .map((hlsPath, index) => {
-//           const { resolution, bitrate } = resolutions[index]; // Get the associated resolution and bitrate
-//           return `#EXT-X-STREAM-INF:BANDWIDTH=${bitrate},RESOLUTION=${resolution}\n${hlsPath}`;
-//         })
-//         .join("\n");
-
-//       // Save master playlist to a file
-//       const masterPlaylistPath = path.join(hlsDir, `${hlsName}_index.m3u8`);
-//       fs.writeFileSync(masterPlaylistPath, masterPlaylist);
-
-//       // Add the master playlist URL to the video object
-//       video.hlsUrl.push(
-//         `https://localhost:3000/hls/${video._id}/${hlsName}_index.m3u8`
-//       );
-
-//       // Save video metadata to MongoDB
-//       await video.save();
-
-//       if (fs.existsSync(originalVideoPath)) {
-//         fs.unlinkSync(originalVideoPath);
-//       }
-
-//       console.log(`Processed ${name}: HLS master playlist created.`);
-//       resolve();
-//     });
-//   });
-// });
-
-// const heightToResolutions: Record<
-//   number,
-//   { resolution: string; bitrate: number }[]
-// > = {
-//   1080: [
-//     { resolution: "1080p", bitrate: 4000000 },
-//     { resolution: "720p", bitrate: 2500000 },
-//     { resolution: "480p", bitrate: 1000000 },
-//     { resolution: "360p", bitrate: 750000 },
-//     { resolution: "240p", bitrate: 400000 },
-//   ],
-//   720: [
-//     { resolution: "720p", bitrate: 2500000 },
-//     { resolution: "480p", bitrate: 1000000 },
-//     { resolution: "360p", bitrate: 750000 },
-//     { resolution: "240p", bitrate: 400000 },
-//   ],
-//   480: [
-//     { resolution: "480p", bitrate: 1000000 },
-//     { resolution: "360p", bitrate: 750000 },
-//     { resolution: "240p", bitrate: 400000 },
-//   ],
-//   360: [
-//     { resolution: "360p", bitrate: 750000 },
-//     { resolution: "240p", bitrate: 400000 },
-//   ],
-// };
