@@ -61,7 +61,7 @@ app.post("/authenticate", async (req: Request, res: Response) => {
 app.post("/streams/record-done", (req: Request, res: Response) => {
   const { name, path } = req.body;
   // Update database with path of the completed recording
-  // videoQueue.add({ name, videoPath: path });
+  videoQueue.add({ name, videoPath: path });
 
   console.log("stream stopped");
   res.sendStatus(200);
